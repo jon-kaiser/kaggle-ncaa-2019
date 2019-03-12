@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 
 # open regular season detailed results file
@@ -96,9 +97,35 @@ ratings.loc[2018].to_csv('SavedOutputs/TeamsRatings2018.csv')
 #  -103.5, -68.2, L
 # ...
 
+print("Creating training set")
+train = pd.DataFrame()
+for y in range(2003, 2019):
+  print("Year {}".format(y), end='\r')
+  for r in results.loc[y].itertuples():
+    offdiff = ratings.loc[y,r.WTeamID]['OffRate'] - ratings.loc[y,r.LTeamID]['DefRate']
+    defdiff = ratings.loc[y,r.WTeamID]['DefRate'] - ratings.loc[y,r.LTeamID]['OffRate']
+    if r.LTeamID < r.WTeamID:
+      offdiff = offdiff * -1
+      defdiff = defdiff * -1
+      train = train.append(pd.DataFrame([{'Year':y, 'Team1':r.LTeamID, 'Team2': r.WTeamID, 'OffDiff': offdiff, 'DefDiff': defdiff, 'Result': 'L'}]))
+    else:
+      train = train.append(pd.DataFrame([{'Year':y, 'Team1':r.WTeamID, 'Team2': r.LTeamID, 'OffDiff': offdiff, 'DefDiff': defdiff, 'Result': 'W'}]))
 
-# Maybe plot some of the training set data?
+print("")
+train = train.set_index(['Year', 'Result'])
 
+
+# Plot some of the training set data?
+
+plt.scatter(train.loc[2018,'W']['OffDiff'].values, train.loc[2018,'W']['DefDiff'].values, c='g', alpha=0.1, label="Win")
+plt.scatter(train.loc[2018,'L']['OffDiff'].values, train.loc[2018,'L']['DefDiff'].values, c='r', alpha=0.1, label="Loss")
+plt.grid(True)
+plt.ylabel("Def Rating Diff")
+plt.xlabel("Off Rating Diff")
+plt.title("2018 Training Data")
+plt.legend()
+plt.savefig("SavedOutputs/TrainResults2018.png")
+plt.show()
 
 
 # Once that training set is made, create the model. Use Logistic Regression?
