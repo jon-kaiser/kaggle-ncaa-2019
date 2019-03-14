@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
 import os
 
 # open regular season detailed results file
@@ -26,12 +27,12 @@ for y in range(2003,2019):
     PointAll = wins['LScore']
     losses = RegDetails.loc[y,:,:,t]
     nlosses = losses.shape[0]
+    PointSc = PointSc.append(losses['LScore'])
+    PointAll = PointAll.append(losses['WScore'])
     if nwins == 0:
       wperc = 0
     else:
       wperc = nwins / (nwins + nlosses)
-    PointSc = PointSc.append(losses['LScore'])
-    PointAll = PointAll.append(wins['WScore'])
     wl = wl.append(pd.DataFrame([{'Year':y, 'TeamID':t, 'Wins': nwins, 'Losses': nlosses, 'WinPerc': wperc, 'PointScored': PointSc.mean(), 'PointAllowed': PointAll.mean()}]))
 
 print("")
@@ -107,9 +108,9 @@ for y in range(2003, 2019):
     if r.LTeamID < r.WTeamID:
       offdiff = offdiff * -1
       defdiff = defdiff * -1
-      train = train.append(pd.DataFrame([{'Year':y, 'Team1':r.LTeamID, 'Team2': r.WTeamID, 'OffDiff': offdiff, 'DefDiff': defdiff, 'Result': 'L'}]))
+      train = train.append(pd.DataFrame([{'Year':y, 'Team1':r.LTeamID, 'Team2': r.WTeamID, 'OffDiff': offdiff, 'DefDiff': defdiff, 'Result': 0}]))
     else:
-      train = train.append(pd.DataFrame([{'Year':y, 'Team1':r.WTeamID, 'Team2': r.LTeamID, 'OffDiff': offdiff, 'DefDiff': defdiff, 'Result': 'W'}]))
+      train = train.append(pd.DataFrame([{'Year':y, 'Team1':r.WTeamID, 'Team2': r.LTeamID, 'OffDiff': offdiff, 'DefDiff': defdiff, 'Result': 1}]))
 
 print("")
 train = train.set_index(['Year', 'Result'])
@@ -117,8 +118,8 @@ train = train.set_index(['Year', 'Result'])
 
 # Plot some of the training set data?
 
-plt.scatter(train.loc[2018,'W']['OffDiff'].values, train.loc[2018,'W']['DefDiff'].values, c='g', alpha=0.1, label="Win")
-plt.scatter(train.loc[2018,'L']['OffDiff'].values, train.loc[2018,'L']['DefDiff'].values, c='r', alpha=0.1, label="Loss")
+plt.scatter(train.loc[2018,1]['OffDiff'].values, train.loc[2018,1]['DefDiff'].values, c='g', alpha=0.1, label="Win")
+plt.scatter(train.loc[2018,0]['OffDiff'].values, train.loc[2018,0]['DefDiff'].values, c='r', alpha=0.1, label="Loss")
 plt.grid(True)
 plt.ylabel("Def Rating Diff")
 plt.xlabel("Off Rating Diff")
@@ -128,7 +129,13 @@ plt.savefig("SavedOutputs/TrainResults2018.png")
 plt.show()
 
 
-# Once that training set is made, create the model. Use Logistic Regression?
+# Once that training set is made, create the model. Use Logistic Regression
+
+train_x = train.iloc[:,0:2].values
+year, result = zip(*train.index.values)
+train_y = list(result)
+model = LogisticRegression()
+model.fit(train_x, train_y)
 
 
 
