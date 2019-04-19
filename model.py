@@ -7,19 +7,19 @@ from sklearn.linear_model import LogisticRegression
 import os
 
 # open regular season detailed results file
-RegDetails = pd.DataFrame(pd.read_csv('DataFiles/RegularSeasonDetailedResults.csv', index_col=[0,1,2,4]))
+RegDetails = pd.DataFrame(pd.read_csv('Stage2DataFiles/RegularSeasonDetailedResults.csv', index_col=[0,1,2,4]))
 # open team lookup table
-teams = pd.DataFrame(pd.read_csv('DataFiles/Teams.csv', index_col=0))
+teams = pd.DataFrame(pd.read_csv('Stage2DataFiles/Teams.csv', index_col=0))
 
 # To get all the games a team won in a given year:  RegDetails.loc[YYYY,:,TeamID,:]
 # All the games a team lost in a given year:  RegDetails.loc[YYYY,:,:,TeamID]
 
 wl = pd.DataFrame()
-print("\nCalculating win/loss records and average points scored and allowed per team, per year (2003-2018)")
-for y in range(2003,2019):
+print("\nCalculating win/loss records and average points scored and allowed per team, per year (2003-2019)")
+for y in range(2003,2020):
   print("Year {}".format(y), end='\r')
   for t in teams.index:
-    if 2003 > teams.loc[t]['LastD1Season'] or 2018 < teams.loc[t]['FirstD1Season']:
+    if 2003 > teams.loc[t]['LastD1Season'] or 2019 < teams.loc[t]['FirstD1Season']:
       continue
     wins = RegDetails.loc[y,:,t,:]
     nwins = wins.shape[0]
@@ -45,8 +45,8 @@ wl = wl.set_index(['Year','TeamID'])
 
 results = RegDetails.reset_index().set_index('Season')
 ratings = wl.reindex(index=wl.index, columns=['Name', 'OffRate', 'DefRate'], fill_value=0)
-print("Calculating offensive and defensive ratings per team, per year (2003-2018)")
-for y in range(2003, 2019):
+print("Calculating offensive and defensive ratings per team, per year (2003-2019)")
+for y in range(2003, 2020):
   print("Year {}".format(y), end='\r')
   for r in results.loc[y].itertuples():
     winid = r.WTeamID
@@ -80,11 +80,11 @@ for y in range(2003, 2019):
 
 print("")
 
-# This will save the offensive and defensive ratings for every team from 2018. This can be used to examine and assess these ratings.
-print("Saving Offensive and Defensive ratings for each team for the 2018 season")
+# This will save the offensive and defensive ratings for every team from 2019. This can be used to examine and assess these ratings.
+print("Saving Offensive and Defensive ratings for each team for the 2019 season")
 if not os.path.isdir("SavedOutputs"):
   os.mkdir("SavedOutputs")
-ratings.loc[2018].to_csv('SavedOutputs/TeamsRatings2018.csv')
+ratings.loc[2019].to_csv('SavedOutputs/TeamsRatings2019.csv')
 
 
 # Maybe plot some of the ratings?
@@ -100,7 +100,7 @@ ratings.loc[2018].to_csv('SavedOutputs/TeamsRatings2018.csv')
 
 print("Creating training set")
 train = pd.DataFrame()
-for y in range(2003, 2019):
+for y in range(2003, 2020):
   print("Year {}".format(y), end='\r')
   for r in results.loc[y].itertuples():
     offdiff = ratings.loc[y,r.WTeamID]['OffRate'] - ratings.loc[y,r.LTeamID]['DefRate']
@@ -118,15 +118,16 @@ train = train.set_index(['Year', 'Result'])
 
 # Plot some of the training set data?
 
-plt.scatter(train.loc[2018,1]['OffDiff'].values, train.loc[2018,1]['DefDiff'].values, c='g', alpha=0.1, label="Win")
-plt.scatter(train.loc[2018,0]['OffDiff'].values, train.loc[2018,0]['DefDiff'].values, c='r', alpha=0.1, label="Loss")
+plt.scatter(train.loc[2019,1]['OffDiff'].values, train.loc[2019,1]['DefDiff'].values, c='g', alpha=0.1, label="Win")
+plt.scatter(train.loc[2019,0]['OffDiff'].values, train.loc[2019,0]['DefDiff'].values, c='r', alpha=0.1, label="Loss")
 plt.grid(True)
 plt.ylabel("Def Rating Diff")
 plt.xlabel("Off Rating Diff")
-plt.title("2018 Training Data")
+plt.title("2019 Training Data")
 plt.legend()
-plt.savefig("SavedOutputs/TrainResults2018.png")
-plt.show()
+plt.savefig("SavedOutputs/TrainResults2019.png")
+# Show plot
+# plt.show()
 
 
 # Once that training set is made, create the model. Use Logistic Regression
@@ -138,14 +139,32 @@ model = LogisticRegression()
 model.fit(train_x, train_y)
 
 
-
 # Once the model is made and the parameters calculated, use the model to run the test data.
 # In the first part of the competition we use the model to predict past tournament games from (2014-2018). Since we already know the results of those competitions we can build and train and optimize the model. Reminder, if we do this, we can't train the model using whichever year we're testing on. So if we're testing the 2014 year, we have to leave 2014 training data out of the set, etc. for 2015, 2016...
-
-# One of the components here is some infrastructure to read in the list of the teams that are in the tournament. And then run the model for each permutation of team vs team. And then we need some code built to save the output.
+# The first stage came and went. We didn't have time to test on completed games and then tweak the model and optimize it. Oh well, full steam ahead.
 
 # The second stage of the competition will begin on Sun March 17 and submission ends on Thur March 21. That is the time between the announcement of all the teams that will compete in the 2019 tournament and the beginning of the tournament. In this stage, we predict the probability of winning of each matchup between every team.
 
+# tournament teams by year
+tt = pd.DataFrame(pd.read_csv('Stage2DataFiles/NCAATourneySeeds.csv', index_col=0))
+# Just 2019 tourney teams
+ttarray = tt.loc[2019]['TeamID'].values
+ttarray.sort()
+for i in range(0,ttarray.size):
+  for j in range(i+1,ttarray.size):
+# Get Off and Def diffs for these two teams
+    test_offdiff = ratings.loc[2019,ttarray[i]]['OffRate'] - ratings.loc[2019,ttarray[j]]['DefRate']
+    test_defdiff = ratings.loc[2019,ttarray[i]]['DefRate'] - ratings.loc[2019,ttarray[j]]['OffRate']
+    prob = model.predict_proba(np.array([[test_defdiff, test_offdiff]]))
+    print("2019_{}_{},{:.4f}".format(ttarray[i],ttarray[j], prob[0,1]))
+#    print("2019_{}_{},{:.4f} \t {}-{}".format(ttarray[i],ttarray[j], prob[0,1], teams.loc[ttarray[i]]['TeamName'], teams.loc[ttarray[j]]['TeamName']))
+
+
+
+
+
+# Predict probabilities
+# r = model.predict_proba(np.array([[100,100],[-100,-100],[100,-100],[-100,100],[0,0]]))
 
 # Finito. Give us our prize money NOW!!!
 
